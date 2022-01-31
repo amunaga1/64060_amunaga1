@@ -1,0 +1,77 @@
+---
+title: "Assignment1"
+author: "aditya munagala"
+date :  01/29/2022
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Bikes Dataset
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r cars}
+#install.packages(readr)
+library(readr)
+bikes<-read.csv(file='BIKE DETAILS.csv')
+
+
+```
+
+## Print
+```{r, echo=FALSE}
+
+
+print(bikes$name)
+print(bikes$selling_price)
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+
+
+plot(bikes$year)
+plot(bikes$selling_price)
+
+
+```
+
+## Including Plots with Transformation
+
+You can also embed plots, for example:
+
+```{r , echo=FALSE}
+summary(bikes$seller_type)
+summary(bikes$selling_price)
+
+table(bikes$name)
+table(bikes$seller_type)
+```
+
+## Including scatter Plots
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+#install.packages("ggplot2")
+
+
+library(ggplot2)
+ggplot(bikes, aes(x=name, y=selling_price)) + geom_point()
+
+
+hist(bikes$year,freq=FALSE,main="bikesmaking over the years", xlab="year",ylab="%",col="grey")
+
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
