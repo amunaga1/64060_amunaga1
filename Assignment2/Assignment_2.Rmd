@@ -1,0 +1,197 @@
+---
+title: "Assignment_2"
+author: ''
+date: "2/18/2022"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## assignment:: k-NN for classification
+
+This assignment describes the steps for K-NN classification in R.
+
+We used **Universal bank** customers data includes demographic information, the customer’s relationship with the bank (mortgage, securities account, etc.), and the customer response to the last personal loan campaign (Personal Loan):
+
+Load the dataset and packages into R.
+
+```{r UniBank}
+library(readr)
+
+uniBank <- read.csv("C:\\Users\\amuna\\Downloads\\UniversalBank.csv")
+
+
+# categorical predictors are represented using 0 and 1, dummy variables for ordinal or categorical variables. create dummy variables :: Education_1 = 0, Education_2 = 1, Education_3 = 0 variables (if edu is 1 then 1 others 0, if edu is 2 then 1 others 0)
+
+uniBank$education_1 <- ifelse(uniBank$Education == 1, 1, 0)
+uniBank$education_2 <- ifelse(uniBank$Education == 2, 1, 0)
+uniBank$education_3 <- ifelse(uniBank$Education == 3, 1, 0)
+
+# loan accept dummy variable for loan acceptance, 1 == accept, 0 == not accept. 
+uniBank$acceptance <- ifelse(uniBank$Personal.Loan == 1, 1, 0)
+
+library(dplyr)
+library(caret)
+library(FNN)
+library(gmodels) #sorting the data as a contingency table
+
+#select the 
+uniBank_1 <- uniBank %>% select(Age,Experience,Income,Family,CCAvg,education_1,education_2, education_3,Mortgage,Securities.Account,CD.Account,Online, CreditCard, acceptance)
+
+# create a K-NN Partition from the bank data into training (60%) and validation (40%) sets and use the default cutoff value of 0.5
+
+set.seed(1234) #Random number generator
+train_index_1 = createDataPartition(uniBank_1$acceptance, p = .6, list = FALSE)
+train_data_1 = uniBank_1[train_index_1,] # train
+validation_data_1 = uniBank_1[-train_index_1,] # test 
+
+summary(train_data_1$acceptance)
+summary(validation_data_1$acceptance)
+
+
+# preProcess for normalization :: change the values of numeric columns in the dataset to a common scale
+
+normalize_values <- preProcess(train_data_1[, 1:6], method=c("center", "scale"))
+train_data_1[, 1:6] <- predict(normalize_values, train_data_1[, 1:6]) # Replace first two columns with normalized values
+
+validation_data_1[, 1:6] <- predict(normalize_values, validation_data_1[, 1:6])
+uniBank_1[, 1:6] <- predict(normalize_values, uniBank_1[, 1:6])
+
+summary(train_data_1)
+var(train_data_1[, 1:6])
+summary(validation_data_1)
+var(validation_data_1[, 1:6])
+
+model.task1 <- train(as.factor(acceptance) ~ Age + Experience + Income + Family + CCAvg + education_1 + education_2 
+                + education_3 + Mortgage + Securities.Account + CD.Account + Online + CreditCard,
+                data = train_data_1, method = "knn")
+model.task1
+
+
+```
+
+## Test the model on to a new dataframe
+
+
+```{r predict}
+
+predict_customer_df = data.frame(Age = as.integer(40), Experience = as.integer(10), Income = as.integer(84),
+                         Family = as.integer(2), CCAvg = as.integer(2), Mortgage = as.integer(0),
+                         `Securities.Account` = as.integer(0), `CD.Account` = as.integer(0),
+                         Online = as.integer(1), CreditCard = as.integer(1), education_1 = as.integer(0),
+                         education_2 = as.integer(1), education_3 = as.integer(0))
+
+predict_customer_df = predict(normalize_values, predict_customer_df)
+
+model.task1.1 <- knn(train = train_data_1[, 1:13], test = predict_customer_df[, 1:13],
+                cl = train_data_1$acceptance,
+                k = 7)
+
+
+```
+
+# balance of overfitting and underfitting
+
+```{r best k}
+
+cust.acc.df <- data.frame(k = seq(1, 14, 1), accuracy = rep(0, 14))
+for(i in 1:14) { 
+  best_knn_1 <- knn(train = train_data_1[, 1:13, drop = FALSE], test = validation_data_1[, 1:13, drop = FALSE],
+               cl = as.factor(train_data_1$acceptance), k = i)
+  cust.acc.df[i, 2] <- confusionMatrix(best_knn_1, as.factor(validation_data_1$acceptance))$overall[1] # confusion matrix
+}
+
+cust.acc.df
+```
+# choose k = 1, to test set because that has the highest accuracy
+
+```{r confusion matrix}
+# confusion matrix for when k = 3
+conf_knn_3 <- knn(train = train_data_1[, 1:13, drop = FALSE], test = validation_data_1[, 1:13, drop = FALSE],
+             cl = as.factor(train_data_1$acceptance), k = 1, prob=TRUE)
+confusionMatrix(conf_knn_3, as.factor(validation_data_1$acceptance))
+
+```
+# Test the model on a new data set
+```{r test}
+test_customer_df = data.frame(Age = as.integer(40), Experience = as.integer(10), Income = as.integer(84),
+                         Family = as.integer(2), CCAvg = as.integer(2), Mortgage = as.integer(0),
+                         `Securities.Account` = as.integer(0), `CD.Account` = as.integer(0),
+                         Online = as.integer(1), CreditCard = as.integer(1), education_1 = as.integer(0),
+                         education_2 = as.integer(1), education_3 = as.integer(0))
+
+test_customer_df = predict(normalize_values, test_customer_df)
+
+model.task1.2 <- knn(train = train_data_1[, 1:13], test = test_customer_df[, 1:13],
+                cl = train_data_1$acceptance,
+                k =  1, prob = TRUE)
+
+model.task1.2
+```
+# customer is still in level 0: the loan will not be accepted
+# Repartition the data, this time into training, validation, and test sets (50% : 30% : 20%)
+
+```{r split}
+# 50% for training, 30% for validation and 20% for testing, split the data
+uniBank_2 <- uniBank %>% select(Age, Experience, Income, Family, CCAvg, Mortgage, Securities.Account, CD.Account, Online, CreditCard, education_1, education_2, education_3, acceptance)
+
+set.seed(1234)
+
+Test_Index_2 = createDataPartition(uniBank_2$acceptance, p=.2, list = FALSE)
+Test_Data_2 = uniBank_2[Test_Index_2,]
+Test_Validation_Data_2 = uniBank_2[-Test_Index_2,] # Validation and training data
+
+train_Index_2 = createDataPartition(uniBank_2$acceptance, p=.5, list = FALSE)
+train_Data_2 = uniBank_2[train_Index_2,]
+train_Validation_Data_2 = Test_Validation_Data_2[-train_Index_2,] #validation data
+
+summary(train_Data_2)
+summary(Test_Data_2)
+summary(train_Validation_Data_2)
+
+# Use preProcess() from the caret package to normalize Sales and Age.
+
+Norm_Values = preProcess(train_Data_2[,1:6], method = c("center", "scale"))
+train_Norm_DF2 <- predict(Norm_Values, train_Data_2)
+Validation_Norm_DF2 <- predict(Norm_Values, train_Validation_Data_2)
+train_Validation_Norm_DF2 <- predict(Norm_Values, Test_Validation_Data_2)
+Test_Norm_DF2 <- predict(Norm_Values, Test_Data_2)
+
+summary(train_Norm_DF2)
+var(train_Norm_DF2[,1:6])
+summary(Validation_Norm_DF2)
+var(Validation_Norm_DF2[,1:6])
+
+## The training and validation should be combine and predict for test data
+Norm_Values <- preProcess(train_Validation_Data_2, method=c("center", "scale"))
+
+train_Validation_Norm_DF2 <- predict(Norm_Values, train_Validation_Data_2)
+Test_Norm_DF2 <- predict(Norm_Values, Test_Data_2)
+
+summary(train_Validation_Norm_DF2[,1:6])
+summary(Test_Norm_DF2[,1:6])
+
+# confusion Matrix and get predict
+KNN_train2 <- knn(train=train_Norm_DF2, test = train_Norm_DF2,
+                   cl = train_Norm_DF2$acceptance, k=3 ) # we found k=3 best
+
+KNN_Validation2 <- knn(train=train_Norm_DF2[,1:13], test = Validation_Norm_DF2[,1:13],
+                      cl = train_Norm_DF2$acceptance, k=3)
+
+KNN_Test2 <- knn(train=train_Norm_DF2, test = Test_Norm_DF2,
+                 cl = train_Norm_DF2$acceptance, k=3)
+
+confusionMatrix(KNN_train2, as.factor(train_Norm_DF2$acceptance))
+confusionMatrix(KNN_Validation2, as.factor(Validation_Norm_DF2$acceptance))
+confusionMatrix(KNN_Test2,as.factor(Test_Data_2$acceptance))
+
+```
+After building the model we got 99.8% accurate with a sensitivity of 99.78%. The acceptance of the loan 99.78%.
+
+
+The model on which we trained data got highest accuracy, sensitivity and specificity compared to the validation and testing data.
+
